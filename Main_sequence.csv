@@ -1,0 +1,7 @@
+Prompt Name|Formatted Prompt|Action|LLM Response|Condition|True Next Prompt|False Next Prompt|Next Prompt
+Start|Write a python code return a text from an internet search on duckduckgo using free public api and beautifulsoup{InitialPrompt}|generate_response|pythoncode||||Extract
+Extract|{pythoncode}|extract_python_code|pythoncodeclean||||Show
+Show|May i execute following python code : {pythoncodeclean}|get_user_input|useranswer|useranswer=="yes"|Execute||stop
+Execute|{pythoncodeclean}|execute_python_code|output||||Analyze
+Analyze|Should i debug this code ?|get_user_input|useranswer|useranswer=="yes"|Debug||stop
+Debug|Please debug the following python code : {pythoncodeclean}           Has generated the following error : {output}                                Please write hereunder your analysis and new corrected code :|generate_response|pythoncode||||Extract
