@@ -136,7 +136,7 @@ FUNCTION_REGISTRY["run_prompt_sequence"] = run_prompt_sequence  # Add it to the 
 initial_prompts_file = "initial_prompts.txt"
 initial_prompts = load_initial_prompts(initial_prompts_file)
 
-sequence_file = "table_data.csv"
+sequence_file = "Main_sequence.csv"
 prompt_sequence = load_prompt_sequence(sequence_file)
 
 # Run the sequence for each initial prompt
