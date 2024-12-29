@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editable Table with CSV Import/Export</title>
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f4f4f4;
+    }
+    .button {
+      margin: 10px 5px;
+      padding: 10px 15px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    .button:hover {
+      background-color: #0056b3;
+    }
+    .highlight {
+      background-color: #d3f9d8;
+    }
+  </style>
+</head>
+<body>
+  <h1>Editable Table with Validation, CSV Import, and Export</h1>
+  <table id="editableTable">
+    <thead>
+      <tr>
+        <th>Prompt Name</th>
+        <th>Formatted Prompt</th>
+        <th>Action</th>
+        <th>LLM Response</th>
+        <th>Condition</th>
+        <th>True Next Prompt</th>
+        <th>False Next Prompt</th>
+        <th>Next Prompt</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td contenteditable="false">Start</td>
+        <td contenteditable="true">Propose a type of scenario to design (e.g. storytelling or research or problem-solving) in one sentence</td>
+        <td contenteditable="true">generate_response</td>
+        <td contenteditable="true">scenario_type</td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true">IdentifySteps</td>
+        <td><button class="deleteRow button">Delete</button></td>
+      </tr>
+    </tbody>
+  </table>
+  <button class="button" id="addRow">Add Row</button>
+  <button class="button" id="exportCSV">Export as CSV</button>
+  <input type="file" id="uploadCSV" class="button" accept=".csv">
+
+  <script>
+    let selectedRow = null;
+
+    // Highlight a row when clicked
+    document.querySelector('#editableTable tbody').addEventListener('click', (e) => {
+      if (e.target.tagName === 'TD' || e.target.tagName === 'BUTTON') {
+        const row = e.target.closest('tr');
+        document.querySelectorAll('#editableTable tbody tr').forEach(tr => tr.classList.remove('highlight'));
+        row.classList.add('highlight');
+        selectedRow = row;
+      }
+    });
+
+    // Function to add a new row
+    document.getElementById('addRow').addEventListener('click', () => {
+      const tableBody = document.getElementById('editableTable').querySelector('tbody');
+      const newRow = document.createElement('tr');
+
+      // Get all existing LLM Response values for validation
+      const existingResponses = Array.from(tableBody.rows).map(row => row.cells[3].innerText.trim());
+
+      newRow.innerHTML = `
+        <td contenteditable="true">NewPrompt</td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td><button class="deleteRow button">Delete</button></td>
+      `;
+
+      // Add validation to the Formatted Prompt column
+      newRow.querySelectorAll('td')[1].addEventListener('focusout', function () {
+        const formattedPrompt = this.innerText;
+        const matches = formattedPrompt.match(/\{(.*?)\}/g);
+        if (matches) {
+          const invalidTerms = matches.filter(term => !existingResponses.includes(term.replace(/[{}]/g, '')));
+          if (invalidTerms.length > 0) {
+            alert(`Validation failed: The following terms in curly braces are not found in any LLM Response: ${invalidTerms.join(', ')}`);
+            this.focus();
+          }
+        }
+      });
+
+      // Add delete functionality to the button
+      newRow.querySelector('.deleteRow').addEventListener('click', () => {
+        newRow.remove();
+      });
+
+      if (selectedRow) {
+        tableBody.insertBefore(newRow, selectedRow.nextSibling);
+      } else {
+        tableBody.appendChild(newRow);
+      }
+    });
+
+    // Function to export the table as a CSV with | as a separator
+    document.getElementById('exportCSV').addEventListener('click', () => {
+      const table = document.getElementById('editableTable');
+      const rows = Array.from(table.rows);
+
+      // Remove trailing spaces from each cell content
+      const csvData = rows.map(row =>
+        Array.from(row.cells)
+          .slice(0, -1) // Exclude the last column (Actions)
+          .map(cell => cell.innerText.trim()) // Trim cell content
+          .join('|') // Use | as the separator
+      ).join('\n');
+
+      // Create and trigger the download
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-'); // For unique filenames
+      link.href = URL.createObjectURL(blob);
+      link.download = `table_data_${timestamp}.csv`; // Default filename with timestamp
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
+    // Function to import a CSV file and populate the table
+    document.getElementById('uploadCSV').addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const tableBody = document.getElementById('editableTable').querySelector('tbody');
+        tableBody.innerHTML = ''; // Clear existing rows
+
+        const rows = reader.result.split('\n');
+        rows.forEach(row => {
+          const cells = row.split('|');
+          if (cells.length > 1) {
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `
+              ${cells.map(cell => `<td contenteditable="true">${cell.trim()}</td>`).join('')}
+              <td><button class="deleteRow button">Delete</button></td>
+            `;
+            newRow.querySelector('.deleteRow').addEventListener('click', () => newRow.remove());
+            tableBody.appendChild(newRow);
+          }
+        });
+      };
+      reader.readAsText(file);
+    });
+
+    // Attach delete functionality to the initial row
+    document.querySelectorAll('.deleteRow').forEach(button => {
+      button.addEventListener('click', (event) => {
+        event.target.closest('tr').remove();
+      });
+    });
+  </script>
+</body>
+</html>
