@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Editable Table with CSV Import/Export</title>
+  <title>Micro GPT-Sequencer Editor</title>
   <style>
     table {
       width: 100%;
@@ -35,7 +35,7 @@
   </style>
 </head>
 <body>
-  <h1>Editable Table with Validation, CSV Import, and Export</h1>
+  <h1>Prompts sequencing Editor for MicroGpt-Sequencer</h1>
   <table id="editableTable">
     <thead>
       <tr>
@@ -108,7 +108,7 @@
         if (matches) {
           const invalidTerms = matches.filter(term => !existingResponses.includes(term.replace(/[{}]/g, '')));
           if (invalidTerms.length > 0) {
-            alert(`Validation failed: The following terms in curly braces are not found in any LLM Response: ${invalidTerms.join(', ')}`);
+            alert(`Validation warning: The following terms in curly braces are currently not found in any LLM Response: ${invalidTerms.join(', ')}`);
             this.focus();
           }
         }
