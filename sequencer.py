@@ -5,7 +5,13 @@ import os
 import random
 import string
 import traceback
+import shutil
+import re
+import time
 from bs4 import BeautifulSoup
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
 # Set the local LLM API endpoint
 api_url = "http://localhost:8080/v1/chat/completions"
 api_headers = {"Content-Type": "application/json"}
@@ -17,12 +23,10 @@ def load_initial_prompts(file_path):
         return ["."]
     
     with open(file_path, mode='r', encoding='utf-8') as file:
-        content = file.read()  # Read the entire file as a single string
+        content = file.read()
     
-    # Split the content into segments based on line breaks
     segments = content.splitlines()
-    return [segment.strip() for segment in segments if segment.strip()]  # Remove empty lines and extra spaces
-
+    return [segment.strip() for segment in segments if segment.strip()]
 
 # Logging function to write results to a CSV file
 def log_to_csv(log_file, step_number, prompt_name, formatted_prompt, response):
@@ -30,7 +34,7 @@ def log_to_csv(log_file, step_number, prompt_name, formatted_prompt, response):
     with open(log_file, mode='a', newline='', encoding='utf-8') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=["Step", "Prompt Name", "Formatted Prompt", "Response"])
         if not file_exists:
-            writer.writeheader()  # Write header only if file does not exist
+            writer.writeheader()
         writer.writerow({
             "Step": step_number,
             "Prompt Name": prompt_name,
@@ -55,7 +59,7 @@ def define_functions(functions):
 def load_prompt_sequence(file_path):
     sequence = {}
     with open(file_path, mode='r', newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile, delimiter='|')  # Specify the '|' delimiter
+        reader = csv.DictReader(csvfile, delimiter='|')
         for row in reader:
             sequence[row['Prompt Name']] = row
     return sequence
@@ -77,23 +81,20 @@ def run_prompt_sequence(sequence, initial_prompt, log_file="sequence_log.csv"):
 
         formatted_prompt = prompt_template.format(**context)
 
-        # Check if action is to run another sequence
         if action == "run_prompt_sequence":
-            nested_sequence_file = prompt_info.get("Sequence File")
+            nested_sequence_file = prompt_info["Formatted Prompt"]
             if not nested_sequence_file:
                 print(f"Missing 'Sequence File' for action 'run_prompt_sequence'.")
                 break
 
             try:
-                # Load the nested sequence
                 nested_sequence = load_prompt_sequence(nested_sequence_file)
                 print(f"\nRunning nested sequence: {nested_sequence_file}")
-                run_prompt_sequence(nested_sequence, formatted_prompt, log_file)  # Recursive call
+                run_prompt_sequence(nested_sequence, formatted_prompt, log_file)
             except Exception as e:
                 print(f"Error running nested sequence '{nested_sequence_file}': {e}")
                 break
         elif action in FUNCTION_REGISTRY:
-            # Call a registered function
             llm_response = FUNCTION_REGISTRY[action](formatted_prompt)
         else:
             print(f"Action '{action}' not recognized.")
@@ -107,16 +108,14 @@ def run_prompt_sequence(sequence, initial_prompt, log_file="sequence_log.csv"):
         print(f"Response:\n{llm_response}")
         print(f"{'*' * 40}\n")
 
-        # Log the prompt and response
         log_to_csv(log_file, step_number, current_prompt_name, formatted_prompt, llm_response)
 
         context[prompt_info["LLM Response"]] = llm_response
 
-        # Evaluate condition
         if condition:
             try:
                 condition_result = eval(condition, {}, context)
-                print(f"Condition is '{condition} within {context} and resulted in value : {condition_result}'")
+                print(f"Condition is '{condition}' within {context} and resulted in value: {condition_result}")
                 current_prompt_name = true_next_prompt if condition_result else false_next_prompt
             except Exception as e:
                 print(f"Error evaluating condition '{condition}': {e}")
@@ -126,11 +125,44 @@ def run_prompt_sequence(sequence, initial_prompt, log_file="sequence_log.csv"):
 
         step_number += 1
 
-# Load function definitions
-file_path_functions = "functions.json"
+# File handler for Watchdog
+class FunctionFileHandler(FileSystemEventHandler):
+    def __init__(self, file_path):
+        self.file_path = file_path
+
+    def on_modified(self, event):
+        if event.src_path.endswith(self.file_path):
+            print("\nDetected changes in 'functions.json'. Reloading functions...")
+            global FUNCTION_REGISTRY
+            function_code = load_functions(self.file_path)
+            FUNCTION_REGISTRY = define_functions(function_code)
+            FUNCTION_REGISTRY["run_prompt_sequence"] = run_prompt_sequence
+
+# Modify the start_watcher function to ensure absolute paths are used
+def start_watcher(file_path):
+    file_dir = os.path.dirname(file_path)  # Get the directory of the file
+    if not os.path.exists(file_dir):
+        print(f"Directory {file_dir} does not exist. Please check the path.")
+        return None
+
+    event_handler = FunctionFileHandler(file_path)
+    observer = Observer()
+    observer.schedule(event_handler, path=file_dir, recursive=False)  # Watch the directory containing the file
+    observer.start()
+    return observer
+
+# Ensure you pass the correct path for functions.json
+file_path_functions = os.path.abspath("functions.json")  # Get absolute path to avoid relative path issues
+observer = start_watcher(file_path_functions)
+
+# Main setup
+file_path_functions = "C:\\Users\\dbddv\\gptfactory\\functions.json"
 function_code = load_functions(file_path_functions)
 FUNCTION_REGISTRY = define_functions(function_code)
-FUNCTION_REGISTRY["run_prompt_sequence"] = run_prompt_sequence  # Add it to the registry
+FUNCTION_REGISTRY["run_prompt_sequence"] = run_prompt_sequence
+
+# Start the file watcher
+observer = start_watcher(file_path_functions)
 
 # Load dataset and run for each initial prompt
 initial_prompts_file = "initial_prompts.txt"
@@ -139,10 +171,16 @@ initial_prompts = load_initial_prompts(initial_prompts_file)
 sequence_file = "Main_sequence.csv"
 prompt_sequence = load_prompt_sequence(sequence_file)
 
-# Run the sequence for each initial prompt
-for initial_prompt in initial_prompts:
-    print(f"\nRunning sequence for initial prompt: {initial_prompt}")
-    print("=" * 50)
-    run_prompt_sequence(prompt_sequence, initial_prompt, log_file="sequence_log.csv")
-    print("=" * 50)
+try:
+    for initial_prompt in initial_prompts:
+        print(f"\nRunning sequence for initial prompt: {initial_prompt}")
+        print("=" * 50)
+        run_prompt_sequence(prompt_sequence, initial_prompt, log_file="sequence_log.csv")
+        print("=" * 50)
+finally:
+    observer.stop()
+    observer.join()
+
+
+
 
