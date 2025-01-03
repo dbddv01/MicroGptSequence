@@ -4,4 +4,7 @@ Extract|{pythoncode}|extract_python_code|pythoncodeclean||||Show
 Show|May i save for testing following python code (yes, no=retry, or ctrl-c to stop ) : {pythoncodeclean}|get_user_input|useranswer|useranswer=="yes"|Save|Start|
 Save|{pythoncodeclean}|process_and_save_function_with_backup|sysmessage||||Show2
 Show2|Saving step returned following messages : *** {sysmessage} **** Can we go to testing ?|get_user_input|useranswer|useranswer=="yes"|Test|stop|
-Test|test_last_function_created.csv|run_prompt_sequence|output_log||||stop
+Test|test_last_function_created.csv|run_prompt_sequence|output_log||||Show3
+Show3|Execution returned : {output_log} Must keep the new function ( otherwise restore previous version ) ?|get_user_input|useranswer|useranswer=="yes"|stop|Restore|
+Restore|functions.json|restore_backup_json|output_log||||Show4
+Show4|Retoration attempt resulted in : {output_log}|get_user_input|useranswer|useranswer=="yes"|stop|stop|
