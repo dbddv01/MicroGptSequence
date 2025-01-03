@@ -1,9 +1,7 @@
 Prompt Name|Formatted Prompt|Action|LLM Response|Condition|True Next Prompt|False Next Prompt|Next Prompt
-Start|Write a python code that create and print a random words between 6 to 8 letters. The final output must always be formatted as a string to be printed.|generate_response|pythoncode||||Extract
+Start|Write a single python function that takes a dummy null string as input and returns another  string which contains a word created from random letters. Do NOT include any example usage !  Provide the code only.|generate_response|pythoncode||||Extract
 Extract|{pythoncode}|extract_python_code|pythoncodeclean||||Show
-Show|May i execute following python code : {pythoncodeclean}|get_user_input|useranswer|useranswer=="yes"|Execute||stop
-Execute|{pythoncodeclean}|execute_python_code|output||||Analyze
-Analyze|Should i debug this code ?|get_user_input|useranswer|useranswer=="yes"|Debug|Continue|stop
-Debug|Please debug the following python code : {pythoncodeclean}           Has generated the following error : {output}                                Please write hereunder your analysis and new corrected code :|generate_response|pythoncode||||Extract
-Continue|Say 'no' if you want to stop, or provide me further additional requirements or adaptation you would like to see with the following code.|get_user_input|useranswer|useranswer=="no"|stop|AdaptCode|stop
-AdaptCode|Please debug the following python code : {pythoncodeclean} at the lights of the new requirements expressed by end-user which is : {useranswer}|generate_response|pythoncode||||Extract
+Show|May i save for testing following python code (yes, no=retry, or ctrl-c to stop ) : {pythoncodeclean}|get_user_input|useranswer|useranswer=="yes"|Save|Start|
+Save|{pythoncodeclean}|process_and_save_function_with_backup|sysmessage||||Show2
+Show2|Saving step returned following messages : *** {sysmessage} **** Can we go to testing ?|get_user_input|useranswer|useranswer=="yes"|Test|stop|
+Test|test_last_function_created.csv|run_prompt_sequence|output_log||||stop
