@@ -92,8 +92,8 @@ def run_prompt_sequence(sequence, initial_prompt, log_file="sequence_log.csv"):
                 print(f"\nRunning nested sequence: {nested_sequence_file}")
                 run_prompt_sequence(nested_sequence, formatted_prompt, log_file)
             except Exception as e:
-                print(f"Error running nested sequence '{nested_sequence_file}': {e}")
-                break
+                error_message = f"Error running nested sequence '{nested_sequence_file}': {e}"
+                return error_message  # Return the error message as a string
         elif action in FUNCTION_REGISTRY:
             llm_response = FUNCTION_REGISTRY[action](formatted_prompt)
         else:
